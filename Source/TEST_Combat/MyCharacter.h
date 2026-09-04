@@ -9,6 +9,7 @@
 
 class UAbilitySystemComponent;
 class UAttributeSet;
+class UGameplayAbility;
 
 UCLASS()
 class TEST_COMBAT_API AMyCharacter : public ACharacter, public IAbilitySystemInterface
@@ -37,10 +38,20 @@ public:
 	// Optional attribute set pointer (can be a custom subclass)		UPROPERTY()
 	UAttributeSet* AttributeSet;
 
+	// Abilities granted to this character's ASC on the server the first time it's possessed.
+	// Editor-side list instead of a C++ change per ability - see PossessedBy.
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
+	TArray<TSubclassOf<UGameplayAbility>> DefaultAbilities;
+
 	// IAbilitySystemInterface implementation
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 	// Initialize ASC when possessed (server) and when PlayerState replicates (client)
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
+
+private:
+	// Guards DefaultAbilities from being granted again if PossessedBy fires more than once for
+	// this ASC (e.g. respawn) - see PossessedBy.
+	bool bDefaultAbilitiesGranted = false;
 };

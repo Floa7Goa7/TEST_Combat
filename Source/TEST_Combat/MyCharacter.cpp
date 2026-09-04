@@ -2,6 +2,7 @@
 
 #include "MyCharacter.h"
 #include "AbilitySystemComponent.h"
+#include "Abilities/GameplayAbility.h"
 #include "Net/UnrealNetwork.h"
 #include "CombatAttributeSet.h"
 
@@ -52,7 +53,22 @@ void AMyCharacter::PossessedBy(AController* NewController)
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
-		// Grant abilities on server here if desired (not implemented)
+
+		// Granting is authority-only and a no-op if HasBeenGivenAbilities has already run once
+		// for this ASC (e.g. PossessedBy firing again on respawn) - GiveAbility itself guards
+		// against granting the exact same spec twice, but this avoids re-adding on every
+		// (re)possession regardless.
+		if (HasAuthority() && !bDefaultAbilitiesGranted)
+		{
+			for (const TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+			{
+				if (AbilityClass)
+				{
+					AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1, INDEX_NONE, this));
+				}
+			}
+			bDefaultAbilitiesGranted = true;
+		}
 	}
 }
 
