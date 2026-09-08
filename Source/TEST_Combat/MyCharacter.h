@@ -66,6 +66,19 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
 
+	// Fired once PlayerState is confirmed valid on THIS machine - from PossessedBy (server) or
+	// OnRep_PlayerState (client), whichever applies. This is the race-free signal for Blueprint
+	// logic that needs PlayerState-hosted components (UEquipmentComponent, UInventoryComponent)
+	// to exist - use it instead of a BeginPlay + fixed Delay guess. A fixed delay is inherently a
+	// race: PlayerState replication timing isn't guaranteed to land within any specific window,
+	// and adding more traffic at connection time (e.g. EquipmentList now replicating to everyone,
+	// not just the owner) can push it past whatever delay used to "usually" be enough. May fire
+	// more than once if this pawn is repossessed without being destroyed (e.g. on some respawn
+	// flows) - guard any one-time binding logic in Blueprint (a Do Once node, or a bool flag) if
+	// re-running it would cause a duplicate delegate binding.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Abilities", meta = (DisplayName = "On Player State Ready"))
+	void OnPlayerStateReady();
+
 private:
 	// Guards DefaultAbilities from being granted again if PossessedBy fires more than once for
 	// this ASC (e.g. respawn) - see PossessedBy.
