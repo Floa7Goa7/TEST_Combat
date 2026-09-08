@@ -83,6 +83,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Item", meta = (DisplayName = "Load Item Definition"))
 	static UItemDefinition* LoadItemDefinitionSynchronous(FPrimaryAssetId ItemID);
 
+	// Icon and PickupMesh are their OWN soft references, separate from the FPrimaryAssetId
+	// resolution LoadItemDefinitionSynchronous handles above - resolving the item definition
+	// itself does not also force these to load. A plain Get on either (or the Blueprint "Get"
+	// node on a soft reference pin) only returns something if it happens to already be resident
+	// in memory, same trap LoadItemDefinitionSynchronous was written to avoid for the item
+	// definition object itself. Use these instead anywhere a Blueprint needs the actual
+	// UTexture2D/UStaticMesh (e.g. WB_InventorySlot::SetItem for Icon; the equip visual-attach
+	// logic setting WeaponMesh's Static Mesh, which currently reuses PickupMesh for the worn
+	// appearance since EquippedMesh is not yet wired up - see EquipmentItemDefinition.h).
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	UTexture2D* LoadIconSynchronous() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	UStaticMesh* LoadPickupMeshSynchronous() const;
+
 	// Extension point for item-specific behavior. Base implementation does nothing and
 	// returns false ("not consumed"); subclasses override to implement heal-on-use,
 	// equip-on-use, quest-turn-in-on-use, etc. Called from server-authoritative code

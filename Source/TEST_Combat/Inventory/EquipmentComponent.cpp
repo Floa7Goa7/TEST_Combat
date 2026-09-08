@@ -26,9 +26,13 @@ void UEquipmentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	// COND_OwnerOnly for the same reason as UInventoryComponent::InventoryList - see that
-	// class' GetLifetimeReplicatedProps comment.
-	DOREPLIFETIME_CONDITION(UEquipmentComponent, EquipmentList, COND_OwnerOnly);
+	// Unlike UInventoryComponent::InventoryList (COND_OwnerOnly - unequipped inventory contents
+	// are genuinely private), EquipmentList replicates to EVERYONE: equipped gear is rendered in
+	// the 3D world (weapon mesh, armor appearance, ...), so every client needs to know what every
+	// other player has equipped, not just the owning client. See UGA_WeaponAttack/the visual
+	// weapon-mesh-attach logic in BP_ThirdPersonCharacter, both of which need this for actors
+	// other than the local player.
+	DOREPLIFETIME(UEquipmentComponent, EquipmentList);
 }
 
 void UEquipmentComponent::BeginPlay()
@@ -389,6 +393,12 @@ void UEquipmentComponent::Server_EndSlotOp(FGameplayTag SlotTag)
 	LastSlotOperationServerTime.Add(SlotTag, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0);
 }
 
+UEquipmentItemDefinition* UEquipmentComponent::GetEquippedItemDefinition(FGameplayTag SlotTag) const
+{
+	const FEquipmentEntry* Entry = EquipmentList.FindBySlotTag(SlotTag);
+	return Entry ? ResolveEquipmentDefinition(Entry->ItemID) : nullptr;
+}
+
 UEquipmentItemDefinition* UEquipmentComponent::ResolveEquipmentDefinition(const FPrimaryAssetId& ItemID) const
 {
 	if (!ItemID.IsValid())
@@ -396,8 +406,9 @@ UEquipmentItemDefinition* UEquipmentComponent::ResolveEquipmentDefinition(const 
 		return nullptr;
 	}
 
-	UObject* Asset = UAssetManager::Get().GetPrimaryAssetObject(ItemID);
-	return Cast<UEquipmentItemDefinition>(Asset);
+	// See UInventoryComponent::ResolveItemDefinition - same "force a real load" fix, since
+	// UEquipmentItemDefinition is a UItemDefinition subclass and nothing preloads these either.
+	return Cast<UEquipmentItemDefinition>(UItemDefinition::LoadItemDefinitionSynchronous(ItemID));
 }
 
 AActor* UEquipmentComponent::ResolveWearerActor() const

@@ -119,7 +119,7 @@ bool UInventoryComponent::RemoveItem(int32 SlotIndex, int32 Quantity)
 		Op.SlotA = SlotIndex;
 		Op.Quantity = Quantity;
 		PendingPredictions.Add(Op);
-		RebuildPredictedState();
+		RebuildPredictedState(SlotIndex);
 	}
 
 	Server_RemoveItem(SlotIndex, Quantity, PredictionID);
@@ -159,7 +159,7 @@ bool UInventoryComponent::UseItem(int32 SlotIndex)
 		// evaluate authoritatively. Queuing the op (for the pending-slot check above) without
 		// guessing the outcome is safer than predicting a decrement that might have to
 		// visibly "undo" itself.
-		RebuildPredictedState();
+		RebuildPredictedState(SlotIndex);
 	}
 
 	Server_UseItem(SlotIndex, PredictionID);
@@ -189,7 +189,7 @@ bool UInventoryComponent::MoveItem(int32 SourceSlot, int32 DestSlot)
 		Op.SlotA = SourceSlot;
 		Op.SlotB = DestSlot;
 		PendingPredictions.Add(Op);
-		RebuildPredictedState();
+		RebuildPredictedState(SourceSlot, DestSlot);
 	}
 
 	Server_MoveItem(SourceSlot, DestSlot, PredictionID);
@@ -220,7 +220,7 @@ bool UInventoryComponent::SplitStack(int32 SourceSlot, int32 DestSlot, int32 Spl
 		Op.SlotB = DestSlot;
 		Op.Quantity = SplitQuantity;
 		PendingPredictions.Add(Op);
-		RebuildPredictedState();
+		RebuildPredictedState(SourceSlot, DestSlot);
 	}
 
 	Server_SplitStack(SourceSlot, DestSlot, SplitQuantity, PredictionID);
@@ -250,7 +250,7 @@ bool UInventoryComponent::MergeStack(int32 SourceSlot, int32 DestSlot)
 		Op.SlotA = SourceSlot;
 		Op.SlotB = DestSlot;
 		PendingPredictions.Add(Op);
-		RebuildPredictedState();
+		RebuildPredictedState(SourceSlot, DestSlot);
 	}
 
 	Server_MergeStack(SourceSlot, DestSlot, PredictionID);
@@ -280,7 +280,7 @@ bool UInventoryComponent::DropItem(int32 SlotIndex, int32 Quantity)
 		Op.SlotA = SlotIndex;
 		Op.Quantity = Quantity;
 		PendingPredictions.Add(Op);
-		RebuildPredictedState();
+		RebuildPredictedState(SlotIndex);
 	}
 
 	Server_DropItem(SlotIndex, Quantity, PredictionID);
@@ -345,7 +345,7 @@ void UInventoryComponent::NotifySlotReplicated(int32 SlotIndex, bool bWasRemoved
 	// converge here so there is exactly one place that broadcasts to UI and reconciles
 	// prediction.
 	OnInventoryChanged.Broadcast(SlotIndex, bWasRemoved);
-	RebuildPredictedState();
+	RebuildPredictedState(SlotIndex);
 }
 
 void UInventoryComponent::NotifyReplicatedDeltaReceived(int32 SlotIndex, bool bWasRemoved)
@@ -500,7 +500,7 @@ void UInventoryComponent::ApplyPredictedOpToArray(TArray<FInventoryItem>& Items,
 	}
 }
 
-void UInventoryComponent::RebuildPredictedState()
+void UInventoryComponent::RebuildPredictedState(int32 ChangedSlotA, int32 ChangedSlotB)
 {
 	// Always start from the last known AUTHORITATIVE snapshot and replay whatever
 	// PREDICTED ops are still outstanding on top of it. This is what makes reconciliation
@@ -519,9 +519,23 @@ void UInventoryComponent::RebuildPredictedState()
 		}
 	}
 
-	// A rebuild can touch several slots at once, so there is no single meaningful
-	// SlotIndex to report; INDEX_NONE tells UI to refresh broadly.
-	OnPredictedInventoryChanged.Broadcast(INDEX_NONE, false);
+	// See this function's declaration comment: broadcast just the slot(s) the caller told us
+	// changed, or INDEX_NONE (both left at default) to tell UI to refresh broadly.
+	if (ChangedSlotA == INDEX_NONE && ChangedSlotB == INDEX_NONE)
+	{
+		OnPredictedInventoryChanged.Broadcast(INDEX_NONE, false);
+	}
+	else
+	{
+		if (ChangedSlotA != INDEX_NONE)
+		{
+			OnPredictedInventoryChanged.Broadcast(ChangedSlotA, false);
+		}
+		if (ChangedSlotB != INDEX_NONE)
+		{
+			OnPredictedInventoryChanged.Broadcast(ChangedSlotB, false);
+		}
+	}
 }
 
 // ==================== Server-side anti-spam guards ====================
@@ -559,12 +573,12 @@ UItemDefinition* UInventoryComponent::ResolveItemDefinition(const FPrimaryAssetI
 		return nullptr;
 	}
 
-	// Assumes the item's data asset is already resident (Asset Manager preload rule, or
-	// loaded earlier in the game's own loading flow) rather than loading it synchronously
-	// here, which would stall whatever thread is processing this RPC. A miss is treated as
-	// "unknown item" by every caller of this function.
-	UObject* Asset = UAssetManager::Get().GetPrimaryAssetObject(ItemID);
-	return Cast<UItemDefinition>(Asset);
+	// Forces a synchronous load if the item's data asset isn't already resident - nothing in
+	// this codebase proactively preloads Item primary assets, so relying on GetPrimaryAssetObject
+	// alone silently treats a not-yet-loaded item as "unknown" (see LoadItemDefinitionSynchronous's
+	// comment in ItemDefinition.h). This does mean a cold-loaded item can stall this RPC briefly;
+	// acceptable for AddItem's rate of use.
+	return UItemDefinition::LoadItemDefinitionSynchronous(ItemID);
 }
 
 int32 UInventoryComponent::FindFirstFreeSlot() const

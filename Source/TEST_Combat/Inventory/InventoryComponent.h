@@ -335,7 +335,15 @@ private:
 	int32 AllocatePredictionID() { return NextPredictionID++; }
 	bool IsSlotPendingPrediction(int32 SlotIndex) const;
 	void ApplyPredictedOpToArray(TArray<FInventoryItem>& Items, const FPredictedInventoryOp& Op) const;
-	void RebuildPredictedState();
+
+	// ChangedSlotA/B let a caller that knows exactly which slot(s) its own op touched (Move,
+	// SplitStack, MergeStack, Remove, Use, Drop - all take slot indices as parameters already)
+	// report that precisely, so bound UI can refresh just those slots instead of every slot in
+	// the inventory. Left at INDEX_NONE (the default) for callers that can't pin a slot - AddItem
+	// (the server picks the destination slot), and any reconciliation/authoritative-driven
+	// rebuild, where the set of predicted items that shifted isn't necessarily just one op's
+	// slots - which broadcasts INDEX_NONE to tell UI to refresh broadly, same as before.
+	void RebuildPredictedState(int32 ChangedSlotA = INDEX_NONE, int32 ChangedSlotB = INDEX_NONE);
 
 	// ==================== Server-side anti-spam guards ====================
 	TSet<int32> SlotsWithPendingServerOperation;

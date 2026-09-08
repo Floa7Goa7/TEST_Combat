@@ -59,9 +59,20 @@ void UAnimNotifyState_WeaponTrace::NotifyTick(USkeletalMeshComponent* MeshComp, 
 	const FVector Start = WeaponMesh->DoesSocketExist(TraceStartSocket)
 		? WeaponMesh->GetSocketLocation(TraceStartSocket)
 		: WeaponMesh->GetComponentLocation();
+
+	// The fallback direction deliberately uses the OWNER's forward vector, not WeaponMesh's own
+	// (WeaponMesh->GetForwardVector() would seem the obvious choice, but WeaponMesh's rotation is
+	// authored purely to make a bladed weapon's own sockets line up visually when equipped -
+	// nothing has ever validated what direction its raw forward axis points, since a socketed
+	// weapon (the sword) never reaches this branch at all. Exercised for the first time by
+	// unarmed punching (no mesh assigned = no sockets = always this branch), it turned out to
+	// point back into the character rather than away from the hand. The owning actor's forward
+	// vector has no such authoring assumption baked in - it is simply "the direction this
+	// character is facing," which is what an unarmed strike should reach towards regardless of
+	// whatever WeaponMesh's rotation happens to be.
 	const FVector End = WeaponMesh->DoesSocketExist(TraceEndSocket)
 		? WeaponMesh->GetSocketLocation(TraceEndSocket)
-		: Start + WeaponMesh->GetForwardVector() * FallbackBladeLength;
+		: Start + Owner->GetActorForwardVector() * FallbackBladeLength;
 
 	TArray<FHitResult> Hits;
 	const FCollisionShape Shape = FCollisionShape::MakeSphere(TraceRadius);

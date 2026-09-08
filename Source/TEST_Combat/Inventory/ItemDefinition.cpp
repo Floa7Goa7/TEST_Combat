@@ -31,6 +31,16 @@ UItemDefinition* UItemDefinition::LoadItemDefinitionSynchronous(FPrimaryAssetId 
 	return Cast<UItemDefinition>(Manager.GetStreamableManager().LoadSynchronous(AssetPath));
 }
 
+UTexture2D* UItemDefinition::LoadIconSynchronous() const
+{
+	return Icon.LoadSynchronous();
+}
+
+UStaticMesh* UItemDefinition::LoadPickupMeshSynchronous() const
+{
+	return PickupMesh.LoadSynchronous();
+}
+
 bool UItemDefinition::OnItemUsed_Implementation(AActor* UsingActor, UInventoryComponent* OwningInventory, int32 SlotIndex)
 {
 	// Data-only items (crafting materials, quest tokens with no on-use effect, etc.) have

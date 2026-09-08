@@ -9,6 +9,7 @@
 
 class UAbilitySystemComponent;
 class UAttributeSet;
+class UCombatAttributeSet;
 class UGameplayAbility;
 
 UCLASS()
@@ -45,6 +46,21 @@ public:
 
 	// IAbilitySystemInterface implementation
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	// Blueprint-friendly typed accessor for AttributeSet above, which isn't Blueprint-visible at
+	// all (plain UPROPERTY(), and typed as the base UAttributeSet besides). Use this to bind to
+	// UCombatAttributeSet::OnDeath or call ResetForRespawn from this Character's event graph
+	// (e.g. Get Combat Attribute Set -> Bind Event to On Death).
+	UFUNCTION(BlueprintPure, Category = "Attributes")
+	UCombatAttributeSet* GetCombatAttributeSet() const;
+
+	// UCombatAttributeSet::ResetForRespawn is authority-only (no-ops on a client - see its
+	// comment), and UCombatAttributeSet can't own a Server RPC itself (only Actors/Components
+	// can). Call THIS from Blueprint instead of Reset For Respawn directly whenever the respawn
+	// flow might run on a non-host client (e.g. reacting to this character's own OnDeath) - it
+	// routes to the server like any other Server UFUNCTION regardless of which machine calls it.
+	UFUNCTION(BlueprintCallable, Category = "Attributes", Server, Reliable)
+	void Server_ResetForRespawn();
 
 	// Initialize ASC when possessed (server) and when PlayerState replicates (client)
 	virtual void PossessedBy(AController* NewController) override;

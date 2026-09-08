@@ -9,6 +9,7 @@
 
 class UEquipmentComponent;
 class UStaticMesh;
+class UAnimMontage;
 
 /**
  * Data for a wearable/wieldable item (weapon, shield, backpack, armor piece). Subclasses
@@ -47,13 +48,55 @@ public:
 	// worn one are different presentation concerns, even though small/simple items may point
 	// both fields at the same mesh asset). Static mesh, not skeletal: attached to a socket on
 	// the wearer's skeleton (AttachSocketName) rather than driven by its own skeleton - the
-	// common case for weapons/shields/helmets that don't need their own deformation. Not yet
-	// consumed by any code - wiring it up to actually attach on equip is a follow-up.
+	// common case for weapons/shields/helmets that don't need their own deformation. This is
+	// what BP_ThirdPersonCharacter's equip visual-attach logic reads (via
+	// LoadEquippedMeshSynchronous below) to set WeaponMesh's Static Mesh - not PickupMesh, which
+	// is for the ground-dropped appearance only.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	TSoftObjectPtr<UStaticMesh> EquippedMesh;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	FName AttachSocketName;
+
+	// Forces a synchronous load of EquippedMesh if not already resident - same rationale as
+	// UItemDefinition::LoadIconSynchronous/LoadPickupMeshSynchronous. Use this instead of a bare
+	// EquippedMesh Get anywhere a Blueprint needs the actual StaticMesh (e.g. the equip
+	// visual-attach logic setting WeaponMesh's Static Mesh).
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	UStaticMesh* LoadEquippedMeshSynchronous() const;
+
+	// Selects which entry of UGA_WeaponAttack::AttackMontagesByWeaponType this item's attack
+	// uses (e.g. "Item.WeaponType.Sword", "Item.WeaponType.Mace"). Left as a plain GameplayTag
+	// rather than an enum so adding a new weapon type is a content change, not a C++ recompile -
+	// same rationale as ItemTags above. Left unset (or unmatched in that map) falls back to
+	// UGA_WeaponAttack::UnarmedMontage.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
+	FGameplayTag WeaponTypeTag;
+
+	// Optional per-item attack montage that takes priority over the WeaponTypeTag map lookup -
+	// for a special-cased weapon whose attack shouldn't be shared with the rest of its type.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
+	TSoftObjectPtr<UAnimMontage> AttackMontageOverride;
+
+	// Montage Play Rate for this item's attack (whichever montage UGA_WeaponAttack ultimately
+	// resolves - override or type lookup). Lets e.g. a mace swing slower than a sword without a
+	// distinct montage asset or a separate cooldown system - AnimNotifyState_WeaponTrace's
+	// hit-detection window scales with it for free, since its timing is relative to the
+	// montage's own timeline.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "0.01"))
+	float SwingSpeed = 1.0f;
+
+	// Damage range rolled per hit for this item's attack - see UGA_WeaponAttack::
+	// OnHitEventReceived, which rolls FMath::RandRange(MinDamage, MaxDamage) independently for
+	// every target hit during a swing. Integers by design (whole-number damage values), even
+	// though the underlying Health attribute is float - only cast to float at the one point
+	// SetSetByCallerMagnitude requires it. Only meaningful for items used by an attack ability
+	// (e.g. equipped to MainHand); leave at 0 for non-weapon gear.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "0"))
+	int32 MinDamage = 0;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat", meta = (ClampMin = "0"))
+	int32 MaxDamage = 0;
 
 	// Extension points for item-specific equip behavior (e.g. granting a GAS GameplayEffect for
 	// stat modifiers) - mirrors UItemDefinition::OnItemUsed's pattern. Base implementation does

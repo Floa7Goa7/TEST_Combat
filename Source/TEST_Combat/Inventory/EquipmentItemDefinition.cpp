@@ -2,6 +2,11 @@
 
 #include "EquipmentItemDefinition.h"
 
+UStaticMesh* UEquipmentItemDefinition::LoadEquippedMeshSynchronous() const
+{
+	return EquippedMesh.LoadSynchronous();
+}
+
 void UEquipmentItemDefinition::OnEquipped_Implementation(AActor* Wearer, UEquipmentComponent* OwningEquipment)
 {
 	// No stat/ability effects yet - see the class comment. Subclasses (or a Blueprint override

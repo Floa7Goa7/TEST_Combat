@@ -35,12 +35,15 @@ struct FPredictedEquipmentOp
  * (more armor slots to follow - see ValidEquipmentSlots).
  *
  * === Placement, replication, prediction, RPC validation ===
- * All follow exactly the same rules as UInventoryComponent (PlayerState placement so equipment
- * survives death; COND_OwnerOnly replication since another player's gear choices are private
- * the same way their inventory is; predict-then-RPC public API; _Validate only rejects
- * structurally malformed requests, business-rule rejections like "slot occupied" happen in
- * _Implementation via Client_AckPrediction(..., false)). See InventoryComponent.h's class
- * comment for the full explanation of each of those - it is not repeated here.
+ * Mostly follows the same rules as UInventoryComponent (PlayerState placement so equipment
+ * survives death; predict-then-RPC public API; _Validate only rejects structurally malformed
+ * requests, business-rule rejections like "slot occupied" happen in _Implementation via
+ * Client_AckPrediction(..., false)). See InventoryComponent.h's class comment for the full
+ * explanation of each of those - it is not repeated here. Replication is the one deliberate
+ * difference: EquipmentList replicates to EVERY client (not COND_OwnerOnly like
+ * UInventoryComponent::InventoryList) - equipped gear is rendered in the 3D world (weapon mesh,
+ * armor appearance), so every player needs to see what every other player has equipped, unlike
+ * the genuinely-private contents of their unequipped inventory.
  *
  * === What is specific to equipment ===
  * - Slots are addressed by FGameplayTag (ValidEquipmentSlots), not a fixed int32 range, so new
@@ -126,6 +129,13 @@ public:
 	// view UI should be asking this against, same rationale as GetPredictedItems() elsewhere).
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	bool IsSlotBlocked(FGameplayTag SlotTag) const;
+
+	// Authoritative-view convenience for non-UI callers (e.g. UGA_WeaponAttack) that need the
+	// actual UEquipmentItemDefinition object for whatever occupies SlotTag, not just its
+	// FPrimaryAssetId - resolves (forcing a load if necessary) in one call. Returns nullptr if
+	// the slot is empty.
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	UEquipmentItemDefinition* GetEquippedItemDefinition(FGameplayTag SlotTag) const;
 
 	// ==================== Persistence ====================
 

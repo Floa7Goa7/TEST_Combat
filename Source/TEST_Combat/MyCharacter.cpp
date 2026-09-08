@@ -46,6 +46,19 @@ UAbilitySystemComponent* AMyCharacter::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+UCombatAttributeSet* AMyCharacter::GetCombatAttributeSet() const
+{
+	return Cast<UCombatAttributeSet>(AttributeSet);
+}
+
+void AMyCharacter::Server_ResetForRespawn_Implementation()
+{
+	if (UCombatAttributeSet* AttrSet = GetCombatAttributeSet())
+	{
+		AttrSet->ResetForRespawn();
+	}
+}
+
 void AMyCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
