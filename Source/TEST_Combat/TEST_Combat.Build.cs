@@ -8,7 +8,7 @@ public class TEST_Combat : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "NetCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayAbilities", "GameplayTags", "GameplayTasks", "NetCore", "AIModule", "StateTreeModule", "GameplayStateTreeModule" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

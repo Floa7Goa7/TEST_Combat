@@ -21,6 +21,13 @@ UGA_WeaponAttack::UGA_WeaponAttack()
 	// which adds this tag when Health reaches 0. No per-ability dead-check needed here; GAS's own
 	// ActivationBlockedTags mechanism handles the rejection.
 	ActivationBlockedTags.AddTag(TAG_State_Dead);
+
+	// Mutual exclusion with any other attack-shaped ability (e.g. an AEnemyCharacter special) -
+	// see TAG_State_Attacking's declaration comment. Owning AND blocking the same tag makes attacks
+	// refuse to interrupt each other with no bespoke sequencing logic needed by whatever picks
+	// which attack to activate.
+	ActivationOwnedTags.AddTag(TAG_State_Attacking);
+	ActivationBlockedTags.AddTag(TAG_State_Attacking);
 }
 
 const UEquipmentItemDefinition* UGA_WeaponAttack::ResolveEquippedWeaponItem(const FGameplayAbilityActorInfo* ActorInfo) const

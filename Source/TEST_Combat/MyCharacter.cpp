@@ -83,6 +83,18 @@ void AMyCharacter::PossessedBy(AController* NewController)
 			bDefaultAbilitiesGranted = true;
 		}
 	}
+
+	// NOTE: PossessedBy fires for ANY controller, not just the real player one - if this pawn's
+	// AutoPossessAI is left at its engine default (PlacedInWorldOrSpawned), it gets briefly
+	// auto-possessed by a generated AAIController (which has no PlayerState) immediately on
+	// spawn, before GameMode hands it to the real PlayerController a moment later. Must check
+	// PlayerState is actually valid before firing - otherwise Blueprint logic bound to "On Player
+	// State Ready" (e.g. Get Player State -> Get Component By Class) runs once too early with a
+	// None PlayerState. The later, real PossessedBy call fires this again correctly.
+	if (GetPlayerState())
+	{
+		OnPlayerStateReady();
+	}
 }
 
 void AMyCharacter::OnRep_PlayerState()
@@ -92,5 +104,13 @@ void AMyCharacter::OnRep_PlayerState()
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+
+	// See the PossessedBy comment above: OnRep_PlayerState can in principle fire with PlayerState
+	// having replicated back to null (e.g. certain respawn/unpossess sequences), so guard here too
+	// rather than assuming non-null just because this callback ran.
+	if (GetPlayerState())
+	{
+		OnPlayerStateReady();
 	}
 }
