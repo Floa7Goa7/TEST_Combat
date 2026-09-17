@@ -77,6 +77,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Enemy|AI")
 	bool IsTargetBeyondLeashRange() const;
 
+	// True once this enemy's ASC has TAG_State_Dead (added by CombatAttributeSet when Health hits
+	// 0 - see its OnDeath comment). Convenience for the StateTree Dead-state trigger condition;
+	// HandleDeath below already does the mechanical death work independent of the StateTree ever
+	// reading this.
+	UFUNCTION(BlueprintPure, Category = "Enemy|AI")
+	bool IsDead() const;
+
 	// The one function that should ever assign CurrentTarget - see that property's comment. Setting
 	// a non-null target while this enemy was previously idle (CurrentTarget was null) triggers
 	// CallForSocialAssist so nearby same-group enemies join the fight; retargeting an already-engaged

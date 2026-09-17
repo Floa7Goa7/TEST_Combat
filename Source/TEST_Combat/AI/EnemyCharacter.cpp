@@ -89,6 +89,12 @@ bool AEnemyCharacter::IsTargetBeyondLeashRange() const
 	return FVector::Dist(CurrentTarget->GetActorLocation(), HomeLocation) > EnemyDefinition->LeashRadius;
 }
 
+bool AEnemyCharacter::IsDead() const
+{
+	const UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	return ASC && ASC->HasMatchingGameplayTag(TAG_State_Dead);
+}
+
 void AEnemyCharacter::SetCurrentTarget(AActor* NewTarget)
 {
 	if (!HasAuthority() || NewTarget == CurrentTarget)

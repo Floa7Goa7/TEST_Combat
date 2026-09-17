@@ -36,7 +36,8 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UAbilitySystemComponent* AbilitySystemComponent;
 
-	// Optional attribute set pointer (can be a custom subclass)		UPROPERTY()
+	// Optional attribute set pointer (can be a custom subclass)
+	UPROPERTY()
 	UAttributeSet* AttributeSet;
 
 	// Abilities granted to this character's ASC on the server the first time it's possessed.
